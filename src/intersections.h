@@ -3,9 +3,10 @@
 // This file includes code from:
 // Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
-#ifndef INTERSECTIONS_H
+#ifndef INTERSECTIONS_H 
 #define INTERSECTIONS_H
 
+#include <limits>
 #include "sceneStructs.h"
 #include "cudaMat4.h"
 #include "glm/glm.hpp"
@@ -17,7 +18,8 @@ __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
-__host__ __device__ float boxIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
+__host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms);
+__host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
 
@@ -68,11 +70,95 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
+//Geometry agnostic wrapper around the intersection tests
+__host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms){
+	float temp, intersect = 1000000;
+	glm::vec3 temp_IP, temp_N;
+	for(int i = 0; i < numberOfGeoms; i++){
+		switch(geoms[i].type){
+		case GEOMTYPE::SPHERE:
+			temp = sphereIntersectionTest(geoms[i], r, intersectionPoint, normal);
+			continue;
+		case GEOMTYPE::CUBE:
+			temp = boxIntersectionTest(geoms[i], r, intersectionPoint, normal);
+			continue;
+		default:
+			temp = -1;
+			continue;
+		}
+
+		//Makes sure that we are getting the first obj that the ray hits
+		if(!epsilonCheck(temp, -1.0f) && temp < intersect){
+			intersect = temp;
+			intersectionPoint = temp_IP;
+			normal = temp_N;
+		}
+	  }
+	return intersect;
+}
+
 //TODO: IMPLEMENT THIS FUNCTION
 //Cube intersection test, return -1 if no intersection, otherwise, distance to intersection
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal){
+	cudaMat4 Ti = box.inverseTransform;
+	glm::vec3 R0 = multiplyMV(Ti, glm::vec4(r.origin, 1.0));
+	float l = glm::length(r.direction);
+	glm::vec3 Rd = multiplyMV(Ti, glm::vec4(glm::normalize(r.direction), 0.0));
+	double tnear = -10000000;
+	double tfar = 10000000;
+	int slab = 0;
+	double t, t1, t2;
+	while(slab < 3){
+		if(Rd[slab] == 0){
+			if(R0[slab] > .5 || R0[slab] < -.5){
+				return -1;
+			}
+		}
+		t1 = (-.5 - R0[slab]) / Rd[slab];
+		t2 = (.5 - R0[slab]) / Rd[slab];
+		if(t1 > t2){
+			double temp = t1;
+			t1 = t2;
+			t2 = temp;
+		}
+		if(t1 > tnear) tnear = t1;
+		if(t2 < tfar) tfar = t2;
+		if(tnear > tfar){
+			return -1;
+		}
+		if(tfar < 0){
+			return -1;
+		}
+		slab++;
+	}
 
-    return -1;
+	if(tnear > -.0001) t = tnear;
+	else t = tfar;
+
+	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(r, t), 1.0));
+	glm::vec3 realOrigin = multiplyMV(box.transform, glm::vec4(0,0,0,1));
+
+	intersectionPoint = realIntersectionPoint;
+
+	glm::vec3 p = R0 + (float)t * Rd;
+
+	glm::vec4 temp_normal;
+	if(abs(p[0] - .5) < .001){
+		temp_normal = glm::vec4(1,0,0,0);
+	}else if(abs(p[0] + .5) < .001){
+		temp_normal = glm::vec4(-1,0,0,0);
+	}else if(abs(p[1] - .5) < .001){
+		temp_normal = glm::vec4(0,1,0,0);
+	}else if(abs(p[1] + .5) < .001){
+		temp_normal = glm::vec4(0,-1,0,0);
+	}else if(abs(p[2] - .5) < .001){
+		temp_normal = glm::vec4(0,0,1,0);
+	}else if(abs(p[2] + .5) < .001){
+		temp_normal = glm::vec4(0,0,-1,0);
+	}
+	normal = glm::normalize(multiplyMV(box.transform, temp_normal));
+        
+	return glm::length(realOrigin - realIntersectionPoint);
 }
 
 //LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.

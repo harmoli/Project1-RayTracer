@@ -1,0 +1,14 @@
+﻿Build started 9/16/2013 2:12:52 PM.
+     1>Project "C:\Users\harmoli\Documents\CIS565\Project-1\PROJ1_WIN\565Raytracer\565Raytracer.vcxproj" on node 2 (Build target(s)).
+     1>InitializeBuildStatus:
+         Touching "Debug\565Raytracer.unsuccessfulbuild".
+       AddCudaCompileDeps:
+         C:\Program Files (x86)\Microsoft Visual Studio 11.0\VC\bin\cl.exe /E /nologo /showIncludes /TP /I"C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v4.0\include" /I"C:/ProgramData/NVIDIA Corporation/NVIDIA GPU Computing SDK 4.0/C/common/inc" /I../shared/glew/includes /I../shared/freeglut/includes /Ibin /Iinclude /I. /FIcuda_runtime.h /c C:\Users\harmoli\Documents\CIS565\Project-1\src\raytraceKernel.cu 
+       AddCudaCompilePropsDeps:
+       Skipping target "AddCudaCompilePropsDeps" because all output files are up-to-date with respect to the input files.
+     1>C:\Users\harmoli\Documents\CIS565\Project-1\PROJ1_WIN\Build\CUDA 4.0.targets(245,9): error : The CUDA Toolkit v4.0 directory '' does not exist.  Please verify the CUDA Toolkit is installed properly or define the CudaToolkitDir property to resolve this error.
+     1>Done Building Project "C:\Users\harmoli\Documents\CIS565\Project-1\PROJ1_WIN\565Raytracer\565Raytracer.vcxproj" (Build target(s)) -- FAILED.
+
+Build FAILED.
+
+Time Elapsed 00:00:00.19

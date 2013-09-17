@@ -44,10 +44,26 @@ __host__ __device__ glm::vec3 generateRandomNumberFromThread(glm::vec2 resolutio
 //TODO: IMPLEMENT THIS FUNCTION
 //Function that does the initial raycast from the camera
 __host__ __device__ ray raycastFromCameraKernel(glm::vec2 resolution, float time, int x, int y, glm::vec3 eye, glm::vec3 view, glm::vec3 up, glm::vec2 fov){
-  ray r;
-  r.origin = glm::vec3(0,0,0);
-  r.direction = glm::vec3(0,0,-1);
-  return r;
+    glm::vec3 A = glm::cross(view, up);
+	glm::vec3 B = glm::cross(A, view);
+	glm::vec3 M = eye + view;
+
+	float phi = glm::radians(fov.y);
+	float theta = glm::radians(fov.x);
+	float C = glm::length(view);
+
+	glm::vec3 V = glm::normalize(B) * (C * tan(phi));
+	glm::vec3 H = glm::normalize(A) * (C * tan(theta));
+
+	float sx = (float) x / (resolution.x - 1.0f);
+	float sy = (float) y / (resolution.y - 1.0f);
+
+	glm::vec3 P = M + (2 * sx - 1.0f)*H	 + (1.0f - 2 * sy)*V;
+
+	ray r;
+	r.origin = eye;
+	r.direction = glm::normalize(P - eye);
+	return r;
 }
 
 //Kernel that blacks out a given image buffer
@@ -98,14 +114,24 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms){
-
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
 
-  if((x<=resolution.x && y<=resolution.y)){
+  float intersect;
+  glm::vec3 intersectionPoint, normal;
 
-    colors[index] = generateRandomNumberFromThread(resolution, time, x, y);
+  if((x<=resolution.x && y<=resolution.y)){
+	  // Intersection Checking
+	  ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+	  intersect = isIntersect(r, intersectionPoint, normal, geoms, numberOfGeoms);
+	  
+	  // Accumulation of color
+	  if (!epsilonCheck(intersect, -1.0f)){
+		  colors[index] = normal;
+	  }else{
+		  colors[index] = glm::vec3(0.0);
+	  }
    }
 }
 
@@ -114,6 +140,10 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iterations, material* materials, int numberOfMaterials, geom* geoms, int numberOfGeoms){
   
   int traceDepth = 1; //determines how many bounces the raytracer traces
+  ray r;
+  float intersect;
+  glm::vec3 intersectionPoint;
+  glm::vec3 normal;
 
   // set up crucial magic
   int tileSize = 8;
@@ -142,6 +172,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   staticGeom* cudageoms = NULL;
   cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
   cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
+
   
   //package camera
   cameraData cam;
