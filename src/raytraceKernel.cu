@@ -16,6 +16,11 @@
 #include "interactions.h"
 #include <vector>
 
+#define POSITION(g) multiplyMV(g.transform, glm::vec4(0,0,0,1))
+#define IS_LIGHT(materials, geoms, idx) !epsilonCheck(materials[geoms[idx].materialid].emittance, 0.0f)
+#define COLOR(materials, g) materials[g.materialid].color
+#define EMITTANCE(materials, g) materials[g.materialid].emittance
+
 #if CUDA_VERSION >= 5000
     #include <helper_math.h>
 #else
@@ -113,25 +118,32 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 //TODO: IMPLEMENT THIS FUNCTION
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
-                            staticGeom* geoms, int numberOfGeoms){
+                            staticGeom* geoms, int numberOfGeoms, material* mats){
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
 
   float intersect;
+  int geomId;
   glm::vec3 intersectionPoint, normal;
 
   if((x<=resolution.x && y<=resolution.y)){
 	  // Intersection Checking
 	  ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
-	  intersect = isIntersect(r, intersectionPoint, normal, geoms, numberOfGeoms);
+	  intersect = isIntersect(r, intersectionPoint, normal, geoms, numberOfGeoms, geomId);
 	  
-	  // Accumulation of color
 	  if (!epsilonCheck(intersect, -1.0f)){
-		  colors[index] = normal;
-	  }else{
-		  colors[index] = glm::vec3(0.0);
+		glm::vec3 light_pos = POSITION(geoms[8]) ;
+		float diffuseTerm = (float)glm::dot(glm::normalize(light_pos - intersectionPoint),glm::vec3(normal));
+		glm::vec3 c = diffuseTerm * glm::vec3(1.0) * mats[geoms[geomId].materialid].color ;
+		colors[index] = c;
 	  }
+	  //// Accumulation of color
+	  //if (!epsilonCheck(intersect, -1.0f)){
+		 // colors[index] = normal;
+	  //}else{
+		 // colors[index] = glm::vec3(0.0);
+	  //}
    }
 }
 
@@ -173,6 +185,9 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMalloc((void**)&cudageoms, numberOfGeoms*sizeof(staticGeom));
   cudaMemcpy( cudageoms, geomList, numberOfGeoms*sizeof(staticGeom), cudaMemcpyHostToDevice);
 
+  material* cudamats = NULL;
+  cudaMalloc((void**)&cudamats, numberOfMaterials * sizeof(material));
+  cudaMemcpy(cudamats, materials, numberOfMaterials * sizeof(material), cudaMemcpyHostToDevice);
   
   //package camera
   cameraData cam;
@@ -183,7 +198,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cam.fov = renderCam->fov;
 
   //kernel launches
-  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms);
+  raytraceRay<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, (float)iterations, cam, traceDepth, cudaimage, cudageoms, numberOfGeoms, cudamats);
 
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, renderCam->resolution, cudaimage);
 

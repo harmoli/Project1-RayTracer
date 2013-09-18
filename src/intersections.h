@@ -18,7 +18,7 @@ __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
-__host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms);
+__host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms, int& geomId);
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float randomSeed);
@@ -71,20 +71,20 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
 }
 
 //Geometry agnostic wrapper around the intersection tests
-__host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms){
+__host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms, int& geomId){
 	float temp, intersect = 1000000;
 	glm::vec3 temp_IP, temp_N;
 	for(int i = 0; i < numberOfGeoms; i++){
 		switch(geoms[i].type){
-		case GEOMTYPE::SPHERE:
-			temp = sphereIntersectionTest(geoms[i], r, intersectionPoint, normal);
-			continue;
-		case GEOMTYPE::CUBE:
-			temp = boxIntersectionTest(geoms[i], r, intersectionPoint, normal);
-			continue;
+		case 0:
+			temp = sphereIntersectionTest(geoms[i], r, temp_IP, temp_N);
+			break;
+		case 1:
+			temp = boxIntersectionTest(geoms[i], r, temp_IP, temp_N);
+			break;
 		default:
 			temp = -1;
-			continue;
+			break;
 		}
 
 		//Makes sure that we are getting the first obj that the ray hits
@@ -92,6 +92,7 @@ __host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::
 			intersect = temp;
 			intersectionPoint = temp_IP;
 			normal = temp_N;
+			geomId = i;
 		}
 	  }
 	return intersect;
@@ -135,12 +136,9 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	if(tnear > -.0001) t = tnear;
 	else t = tfar;
 
-	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(getPointOnRay(r, t), 1.0));
-	glm::vec3 realOrigin = multiplyMV(box.transform, glm::vec4(0,0,0,1));
-
-	intersectionPoint = realIntersectionPoint;
-
 	glm::vec3 p = R0 + (float)t * Rd;
+	glm::vec3 realIntersectionPoint = multiplyMV(box.transform, glm::vec4(p, 1.0));
+	intersectionPoint = realIntersectionPoint;
 
 	glm::vec4 temp_normal;
 	if(abs(p[0] - .5) < .001){
@@ -158,7 +156,7 @@ __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& 
 	}
 	normal = glm::normalize(multiplyMV(box.transform, temp_normal));
         
-	return glm::length(realOrigin - realIntersectionPoint);
+	return glm::length(r.origin - realIntersectionPoint);
 }
 
 //LOOK: Here's an intersection test example from a sphere. Now you just need to figure out cube and, optionally, triangle.
