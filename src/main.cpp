@@ -121,9 +121,8 @@ void runCuda(){
       materials[i] = renderScene->materials[i];
     }
     
-  
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size() );
+    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size());
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);
@@ -218,13 +217,46 @@ void runCuda(){
 		glutSwapBuffers();
 	}
 
+
+
 	void keyboard(unsigned char key, int x, int y)
 	{
 		std::cout << key << std::endl;
+
 		switch (key) 
 		{
 		   case(27):
 			   exit(1);
+			   break;
+		   case 'w':
+			   renderCam->positions->y += .1f;
+			   clearImageBuffer(renderCam);
+			   iterations = 0;
+			   break;
+		   case 'x':
+			   renderCam->positions->y -= .1f;
+			   clearImageBuffer(renderCam);
+			   iterations = 0;
+			   break;
+		   case 'a':
+			   renderCam->positions->x += .1f;
+			   clearImageBuffer(renderCam);
+			   iterations = 0;
+			   break;
+		   case 'd':
+			   renderCam->positions->x -= .1f;
+			   clearImageBuffer(renderCam);
+			   iterations = 0;
+			   break;
+		   case 's':
+			   renderCam->positions->z -= .1f;
+			   clearImageBuffer(renderCam);
+			   iterations = 0;
+			   break;
+		   case 'z':
+			   renderCam->positions->z += .1f;
+			   clearImageBuffer(renderCam);
+			   iterations = 0;
 			   break;
 		}
 	}

@@ -30,6 +30,9 @@
     #include <cutil_math.h>
 #endif
 
+glm::vec3* cudaimage;
+cameraData cam;
+
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
   if( cudaSuccess != err) {
@@ -122,65 +125,73 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 //Core raytracer kernel
 __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, int rayDepth, glm::vec3* colors,
                             staticGeom* geoms, int numberOfGeoms, material* mats){
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * resolution.x);
 
-  ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
-  r.origin = r.origin + 0.01f * generateRandomNumberFromThread(resolution, time, x, y);
-  float intersect, Ka = .05f, Kd = .6f, Ks = .35f;
-  int geomId;
+	float focal_length = 10.0f;
+	glm::vec3 focal_point = cam.position + focal_length * cam.view;
 
-  glm::vec3 intersectionPoint, normal, color, bgColor = glm::vec3(0.0), ambColor = glm::vec3(1.0);
-  glm::vec3 light_pos, ray_incident, reflectedRay, specular, diffuse;
+	ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
+	
+	float t = 1.0f / glm::dot(r.direction, cam.view) * glm::dot(focal_point - r.origin, cam.view);
+	glm::vec3 aimed = r.origin + t * r.direction;
+	r.origin = r.origin + .5f * generateRandomNumberFromThread(resolution, time, x, y);
+	r.direction = 0.01f * generateRandomNumberFromThread(resolution, time, x, y) + glm::normalize(aimed - r.origin);
+	
+	float intersect, Ka = .2f, Kd = .3f, Ks = .5f;
+	int geomId;
 
-  if((x<=resolution.x && y<=resolution.y)){
-		  // Intersection Checking
-		  intersect = isIntersect(r, intersectionPoint, normal, geoms, numberOfGeoms, geomId);
+	glm::vec3 intersectionPoint, normal, color, bgColor = glm::vec3(0.0), ambColor = glm::vec3(1.0);
+	glm::vec3 light_pos, ray_incident, reflectedRay, specular, diffuse;
 
-		  if (epsilonCheck(intersect, -1.0f)){
-			  bool parallel = false;
-			  int i = -1;
-			 while(i < numberOfGeoms && !parallel){
-				 i++;
-				 if(IS_LIGHT(mats, geoms, i))
-					 parallel = epsilonCheck(glm::length(glm::cross(r.direction, POSITION(geoms[i]) - cam.position)), 0.0f);
-			 }
-			 if(parallel) color = COLOR(mats, geoms[i]);
-			 else color = bgColor;
-		  }else{
-			  if(IS_LIGHT(mats, geoms, geomId)) color = COLOR(mats,geoms[geomId]);
-			  else{
-				  int numberOfLights = 0;
-				  for(int i = 0; i < numberOfGeoms; i++){
-					  if(IS_LIGHT(mats, geoms, i)){
-						  numberOfLights++;
-						  light_pos = getRandomPoint(geoms[i], time) ;
-						  if(!rayBlocked(intersectionPoint, light_pos, geoms, numberOfGeoms, mats)){
-							  ray_incident = glm::normalize(intersectionPoint - light_pos);
+	if((x<=resolution.x && y<=resolution.y)){
+			// Intersection Checking
+			intersect = isIntersect(r, intersectionPoint, normal, geoms, numberOfGeoms, geomId);
+
+			if (epsilonCheck(intersect, -1.0f)){
+				bool parallel = false;
+				int i = -1;
+				while(i < numberOfGeoms && !parallel){
+					i++;
+					if(IS_LIGHT(mats, geoms, i))
+						parallel = epsilonCheck(glm::length(glm::cross(r.direction, POSITION(geoms[i]) - cam.position)), 0.0f);
+				}
+				if(parallel) color = COLOR(mats, geoms[i]);
+				else color = bgColor;
+			}else{
+				if(IS_LIGHT(mats, geoms, geomId)) color = COLOR(mats,geoms[geomId]);
+				else{
+					int numberOfLights = 0;
+					for(int i = 0; i < numberOfGeoms; i++){
+						if(IS_LIGHT(mats, geoms, i)){
+							numberOfLights++;
+							light_pos = getRandomPoint(geoms[i], time);
+							if(!rayBlocked(intersectionPoint, light_pos, i, geoms, numberOfGeoms)){
+								ray_incident = glm::normalize(intersectionPoint - light_pos);
 							  
-							  if(epsilonCheck(glm::length(glm::cross(ray_incident, normal)), 0.0f)) reflectedRay = normal;
-							  else if(epsilonCheck(glm::dot(-1.0f * ray_incident, normal), 0.0f)) reflectedRay = ray_incident;
-							  else reflectedRay = ray_incident - 2.0f * normal * glm::dot(ray_incident, normal);
+								if(epsilonCheck(glm::length(glm::cross(ray_incident, normal)), 0.0f)) reflectedRay = normal;
+								else if(epsilonCheck(glm::dot(-1.0f * ray_incident, normal), 0.0f)) reflectedRay = ray_incident;
+								else reflectedRay = ray_incident - 2.0f * normal * glm::dot(ray_incident, normal);
 							  
-							  float specTerm = glm::clamp(glm::dot(glm::normalize(reflectedRay), glm::normalize(-1.0f * r.direction)), 0.0f, 1.0f);
-							  specular = !epsilonCheck(SPECULAR(mats, geoms[geomId]), 0.0f) ? Ks * pow(specTerm, SPECULAR(mats, geoms[geomId])) * SPEC_COLOR(mats, geoms[geomId]) * COLOR(mats, geoms[i]) : glm::vec3(0.0);
+								float specTerm = glm::clamp(glm::dot(glm::normalize(reflectedRay), glm::normalize(-1.0f * r.direction)), 0.0f, 1.0f);
+								specular = !epsilonCheck(SPECULAR(mats, geoms[geomId]), 0.0f) ? Ks * pow(specTerm, SPECULAR(mats, geoms[geomId])) * SPEC_COLOR(mats, geoms[geomId]) * COLOR(mats, geoms[i]) : glm::vec3(0.0);
 
-							  float diffuseTerm = glm::clamp(glm::dot(normal, glm::normalize(light_pos - intersectionPoint)), 0.0f, 1.0f);
-							  Kd = !epsilonCheck(glm::length(specular), 0.0f) ? Kd : Kd + Ks;
-							  diffuse = diffuseTerm * COLOR(mats, geoms[geomId]) * COLOR(mats, geoms[i]);
+								float diffuseTerm = glm::clamp(glm::dot(normal, glm::normalize(light_pos - intersectionPoint)), 0.0f, 1.0f);
+								Kd = !epsilonCheck(glm::length(specular), 0.0f) ? Kd : Kd + Ks;
+								diffuse = diffuseTerm * COLOR(mats, geoms[geomId]) * COLOR(mats, geoms[i]);
 
-							  color += glm::clamp(Ka * ambColor + diffuse + specular, 0.0f, 1.0f);
-						  }else{
-							  color += Ka * ambColor * COLOR(mats, geoms[geomId]);
-						  }
-					  }
-				  }
-				  color = 1.0f / numberOfLights * color;
-			  }
-		  }
-	  colors[index] += color;
-   }
+								color += glm::clamp(Ka * ambColor + diffuse + specular, 0.0f, 1.0f);
+							}else{
+								color += Ka * ambColor * COLOR(mats, geoms[geomId]);
+							}
+						}
+					}
+					color = 1.0f / numberOfLights * color;
+				}
+			}
+			colors[index] += color;
+		}
 }
 
 //TODO: FINISH THIS FUNCTION
@@ -195,7 +206,7 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
   
   //send image to GPU
-  glm::vec3* cudaimage = NULL;
+  cudaimage = NULL;
   cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
   cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
   
@@ -222,7 +233,6 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaMemcpy(cudamats, materials, numberOfMaterials * sizeof(material), cudaMemcpyHostToDevice);
   
   //package camera
-  cameraData cam;
   cam.resolution = renderCam->resolution;
   cam.position = renderCam->positions[frame];
   cam.view = renderCam->views[frame];
@@ -247,4 +257,24 @@ void cudaRaytraceCore(uchar4* PBOpos, camera* renderCam, int frame, int iteratio
   cudaThreadSynchronize();
 
   checkCUDAError("Kernel failed!");
+}
+
+void clearImageBuffer(camera* renderCam){
+	int tileSize = 8;
+    dim3 threadsPerBlock(tileSize, tileSize);
+    dim3 fullBlocksPerGrid((int)ceil(float(renderCam->resolution.x)/float(tileSize)), (int)ceil(float(renderCam->resolution.y)/float(tileSize)));
+
+	// Copy image from CPU to GPU
+	cudaimage = NULL;
+	cudaMalloc((void**)&cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3));
+	cudaMemcpy( cudaimage, renderCam->image, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyHostToDevice);
+
+	// Clear Image
+	clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(renderCam->resolution, cudaimage);
+
+	// Retrieve image
+	cudaMemcpy( renderCam->image, cudaimage, (int)renderCam->resolution.x*(int)renderCam->resolution.y*sizeof(glm::vec3), cudaMemcpyDeviceToHost);
+
+	// Sync Threads
+	cudaThreadSynchronize();
 }

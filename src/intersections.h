@@ -73,16 +73,16 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-__host__ __device__ bool rayBlocked(glm::vec3 const& p1, glm::vec3 const& p2, staticGeom* geoms, int numberOfGeoms, material* mats){
+__host__ __device__ bool rayBlocked(glm::vec3 const& p1, glm::vec3 const& p2, int idx, staticGeom* geoms, int numberOfGeoms){
 	ray r;
 	glm::vec3 v0 = p2 - p1;
 	float l = glm::length(v0);
 	r.direction = glm::normalize(v0);
 	r.origin = .001f * r.direction + p1;
-	int gId; 
+	int gId;
 	glm::vec3 ip, n;
 	float intersection = isIntersect(r, ip, n, geoms, numberOfGeoms, gId);
-	return epsilonCheck(mats[geoms[gId].materialid].emittance, 0.0f);
+	return gId != idx;
 }
 
 //Geometry agnostic wrapper around the intersection tests
@@ -286,8 +286,14 @@ __host__ __device__ glm::vec3 getRandomPointOnCube(staticGeom cube, float random
 //TODO: IMPLEMENT THIS FUNCTION
 //Generates a random point on a given sphere
 __host__ __device__ glm::vec3 getRandomPointOnSphere(staticGeom sphere, float randomSeed){
-
-  return glm::vec3(0,0,0);
+	thrust::default_random_engine rng(hash(randomSeed));
+    thrust::uniform_real_distribution<float> u01(-PI,PI);
+	glm::vec3 radius = getRadiuses(sphere);
+	float theta = (float)u01(rng);
+	float phi = (float)u01(rng);
+	glm::vec3 p = glm::vec3(glm::sin(theta) * glm::cos(phi), glm::sin(theta) * glm::sin(phi), glm::cos(theta));
+	glm::vec3 randPoint = multiplyMV(sphere.transform, glm::vec4(p, 1.0));
+	return randPoint;
 }
 
 #endif
