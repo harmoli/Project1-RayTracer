@@ -129,7 +129,7 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * resolution.x);
 
-	float focal_length = 10.0f;
+	float focal_length = 5.0f;
 	glm::vec3 focal_point = cam.position + focal_length * cam.view;
 
 	ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);

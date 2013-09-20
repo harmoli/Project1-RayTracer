@@ -6,10 +6,13 @@
 //       Yining Karl Li's TAKUA Render, a massively parallel pathtracing renderer: http://www.yiningkarlli.com
 
 #include "main.h"
+#include "fps.h"
 
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
+
+mmc::FpsTracker theFpsTracker;
 
 int main(int argc, char** argv){
 
@@ -198,9 +201,15 @@ void runCuda(){
 #else
 
 	void display(){
+		// Keep track of time
+		theFpsTracker.timestamp();
+
 		runCuda();
 
-		string title = "565Raytracer | " + utilityCore::convertIntToString(iterations) + " Iterations";
+		char info[1024];
+		sprintf(info, "565Raytracer | %i Iterations | Framerate : %3.1f", iterations, theFpsTracker.fpsAverage());
+		string title(info);
+		
 		glutSetWindowTitle(title.c_str());
 
 		glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);
