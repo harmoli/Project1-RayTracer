@@ -116,16 +116,20 @@ void runCuda(){
     //pack geom and material arrays
     geom* geoms = new geom[renderScene->objects.size()];
     material* materials = new material[renderScene->materials.size()];
+	int* lightIds = new int[renderScene->lightIds.size()];
     
     for(int i=0; i<renderScene->objects.size(); i++){
-      geoms[i] = renderScene->objects[i];
+		geoms[i] = renderScene->objects[i];
     }
     for(int i=0; i<renderScene->materials.size(); i++){
-      materials[i] = renderScene->materials[i];
+		materials[i] = renderScene->materials[i];
     }
+	for(int i=0; i<renderScene->lightIds.size(); i++){
+		lightIds[i]= renderScene->lightIds[i];
+	}
     
     // execute the kernel
-    cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size());
+	cudaRaytraceCore(dptr, renderCam, targetFrame, iterations, materials, renderScene->materials.size(), geoms, renderScene->objects.size(), lightIds, renderScene->lightIds.size());
     
     // unmap buffer object
     cudaGLUnmapBufferObject(pbo);

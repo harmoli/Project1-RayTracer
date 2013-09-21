@@ -18,7 +18,7 @@ __host__ __device__ glm::vec3 getPointOnRay(ray r, float t);
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 __host__ __device__ glm::vec3 getSignOfRay(ray r);
 __host__ __device__ glm::vec3 getInverseDirectionOfRay(ray r);
-__host__ __device__ bool rayBlocked(glm::vec3 const& p1, glm::vec3 const& p2, staticGeom* geoms, int numberOfGeoms);
+__host__ __device__ bool rayBlocked(glm::vec3 const& p1, glm::vec3 const& p2, int idx, staticGeom* geoms, int numberOfGeoms, material* mats);
 __host__ __device__ float isIntersect(ray r, glm::vec3& intersectionPoint, glm::vec3& normal, staticGeom* geoms, int numberOfGeoms, int& geomId);
 __host__ __device__ float boxIntersectionTest(staticGeom box, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
 __host__ __device__ float sphereIntersectionTest(staticGeom sphere, ray r, glm::vec3& intersectionPoint, glm::vec3& normal);
@@ -73,16 +73,16 @@ __host__ __device__ glm::vec3 getSignOfRay(ray r){
   return glm::vec3((int)(inv_direction.x < 0), (int)(inv_direction.y < 0), (int)(inv_direction.z < 0));
 }
 
-__host__ __device__ bool rayBlocked(glm::vec3 const& p1, glm::vec3 const& p2, int idx, staticGeom* geoms, int numberOfGeoms){
+__host__ __device__ bool rayBlocked(glm::vec3 const& p1, glm::vec3 const& p2, int idx, staticGeom* geoms, int numberOfGeoms, material* mats){
 	ray r;
 	glm::vec3 v0 = p2 - p1;
-	float l = glm::length(v0);
 	r.direction = glm::normalize(v0);
 	r.origin = .001f * r.direction + p1;
 	int gId;
 	glm::vec3 ip, n;
 	float intersection = isIntersect(r, ip, n, geoms, numberOfGeoms, gId);
-	return gId != idx;
+	if(mats[geoms[gId].materialid].emittance > .001) return false;
+	else return gId != idx;
 }
 
 //Geometry agnostic wrapper around the intersection tests
