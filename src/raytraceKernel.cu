@@ -186,12 +186,11 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 								Kd = !epsilonCheck(glm::length(specular), 0.0f) ? Kd : Kd + Ks;
 								diffuse = diffuseTerm * COLOR(mats, geoms[geomId]) * glm::clamp(COLOR(mats, geoms[lightIds[i]]) * EMITTANCE(mats, geoms[lightIds[i]]), 0.0f, 1.0f);
 
-								color += Ka * ambColor + diffuse + specular;
+								color += Ka * ambColor + diffuse * base_color + specular;
 							}else{
 								color += Ka * ambColor * COLOR(mats, geoms[geomId]);
 							}
 						}
-						color = color * base_color;
 						break;
 					}
 				}

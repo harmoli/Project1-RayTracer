@@ -187,3 +187,11 @@ frame 0
 TRANS       0 10 0
 ROTAT       0 0 90
 SCALE       .3 3 3
+
+OBJECT 9
+cube
+material 8 
+frame 0
+TRANS       5 5 0
+ROTAT       90 0 0
+SCALE       .3 3 3
