@@ -148,7 +148,7 @@ void runCuda(){
       
       gammaSettings gamma;
       gamma.applyGamma = true;
-      gamma.gamma = 1.0/2.2;
+      gamma.gamma = 1.0;
       gamma.divisor = renderCam->iterations;
       outputImage.setGammaSettings(gamma);
       string filename = renderCam->imageName;
@@ -205,13 +205,28 @@ void runCuda(){
 #else
 
 	void display(){
-		// Keep track of time
 		theFpsTracker.timestamp();
+
+		cudaEvent_t start, stop;
+		float time;
+
+		// Keep track of time
+		cudaEventCreate(&start);
+		cudaEventCreate(&stop);
+
+		cudaEventRecord( start, 0 );
 
 		runCuda();
 
+		cudaEventRecord( stop, 0 );
+		cudaEventSynchronize( stop );
+
+		cudaEventElapsedTime( &time, start, stop );
+		cudaEventDestroy( start );
+		cudaEventDestroy( stop );
+
 		char info[1024];
-		sprintf(info, "565Raytracer | %i Iterations | Framerate : %3.1f", iterations, theFpsTracker.fpsAverage());
+		sprintf(info, "565Raytracer | %i Iterations | Framerate : %3.1f fps | GPU Elapsed Time : %3.1f ms", iterations, theFpsTracker.fpsAverage(), time);
 		string title(info);
 		
 		glutSetWindowTitle(title.c_str());

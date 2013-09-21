@@ -80,7 +80,7 @@ namespace mmc
     };
 
     //////////////////////////////////////////////////////////////////////
-    //  Implementation.
+    //  Implementation.he
     //
 
     inline

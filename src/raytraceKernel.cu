@@ -129,14 +129,14 @@ __global__ void raytraceRay(glm::vec2 resolution, float time, cameraData cam, in
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * resolution.x);
 
-	float focal_length = 5.0f;
+	float focal_length = 10.0f;
 	glm::vec3 focal_point = cam.position + focal_length * cam.view;
 
 	ray r = raycastFromCameraKernel(resolution, time, x, y, cam.position, cam.view, cam.up, cam.fov);
 	
 	float t = 1.0f / glm::dot(r.direction, cam.view) * glm::dot(focal_point - r.origin, cam.view);
 	glm::vec3 aimed = r.origin + t * r.direction;
-	r.origin = r.origin + .125f * generateRandomNumberFromThread(resolution, time, x, y);
+	r.origin = r.origin + .5f * generateRandomNumberFromThread(resolution, time, x, y);
 	r.direction = 0.01f * generateRandomNumberFromThread(resolution, time, x, y) + glm::normalize(aimed - r.origin);
 	
 	float intersect, Ka = 0.0f, Kd = .5f, Ks = .5f;
