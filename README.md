@@ -1,6 +1,14 @@
 Project 1 : GPU Ray Tracer
 ============================
 
+<div align = "center">
+
+<img src="https://raw.github.com/harmoli/Project1-RayTracer/master/renders/simple_render.jpeg "Simple Render">
+
+<img src="https://raw.github.com/harmoli/Project1-RayTracer/master/renders/reflective_fun_persepctive.jpeg "Reflective Fun">
+
+</div>
+
  Overview : 
 -----------------------------
 
@@ -36,8 +44,26 @@ Z : +z direction
 Currently, we only allow for the user to interact with the camera by moving the camera's eye position.  
 We plan on adding ways to interact with focal length, aperture and rotation of the camera in the near future.
 
+<div align="center">
 
-[ SEE RENDERS FOLDER FOR RENDERED SCENES FROM RAYTRACER ]
+<img src="https://raw.github.com/harmoli/Project1-RayTracer/master/renders/multiple_lights.jpg">
+<br>
+Multiple Light System and Depth of Field
+
+<br>
+
+<img src="https://raw.github.com/harmoli/Project1-RayTracer/master/renders/spherical_light.jpeg">
+<br>
+Spherical Light and Depth of Field
+
+<br>
+
+<img src="https://raw.github.com/harmoli/Project1-RayTracer/master/renders/reflective_fun.jpeg">
+<br>
+Purely Reflective Mirror Surfaces
+
+
+</div>
 
 
 Performance Analysis :
