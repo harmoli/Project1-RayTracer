@@ -12,7 +12,8 @@ Project 1 : GPU Ray Tracer
  Overview : 
 -----------------------------
 
-For this project we have implemented a per-pixel parallel GPU ray tracer.  The ray tracer implements the following: 
+For this project we have implemented a per-pixel parallel GPU ray tracer.  The ray tracer implements the following:
+
 1. Diffuse Shading
 2. Phong shading
 3. Soft shadows and area lights
@@ -34,12 +35,12 @@ setting the focal length. The aperture can also be changed by changed the multip
 Interactive Camera :
 The keystrokes to interact with the camera are as follows:
 
-W : +y direction
-X : -y direction
-A : -x direction
-D : +x direction
-S : -z direction
-Z : +z direction
++ W : +y direction
++ X : -y direction
++ A : -x direction
++ D : +x direction
++ S : -z direction
++ Z : +z direction
 
 Currently, we only allow for the user to interact with the camera by moving the camera's eye position.  
 We plan on adding ways to interact with focal length, aperture and rotation of the camera in the near future.
